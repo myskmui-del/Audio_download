@@ -109,9 +109,12 @@ def run_download(job_id, url, mode, quality, job_dir):
             }
         else:
             # High = best available (no cap), Medium = up to 720p, Low = up to 480p
+            # Fall back to "best" at the end so a platform that doesn't offer
+            # a stream at exactly this height cap (common on Facebook, etc.)
+            # still downloads something instead of failing outright.
             height_cap = {"high": None, "medium": 720, "low": 480}.get(quality)
             if height_cap:
-                video_format = f"bv*[height<={height_cap}]+ba/best[height<={height_cap}]"
+                video_format = f"bv*[height<={height_cap}]+ba/best[height<={height_cap}]/best"
             else:
                 video_format = "bv*+ba/best"
 

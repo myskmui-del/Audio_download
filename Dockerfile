@@ -1,9 +1,11 @@
 # Base image with Python
 FROM python:3.11-slim
 
-# Install ffmpeg (needed for audio conversion and video merging)
+# Install ffmpeg (needed for audio conversion and video merging) and
+# build tools (needed so pip can build curl_cffi if a prebuilt wheel
+# isn't available for this platform)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get install -y --no-install-recommends ffmpeg build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
