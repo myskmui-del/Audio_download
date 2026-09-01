@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>grab — video &amp; audio downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #16171a;
+    --panel: #1e2024;
+    --border: #2d2f34;
+    --text: #eceae3;
+    --muted: #8b8d94;
+    --amber: #e8a33d;
+    --amber-dim: #4a3a1f;
+    --error: #e2604f;
+    --green: #7fbf7f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px 20px;
+  }
+
+  .wrap { width: 100%; max-width: 560px; }
+
+  .mark {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  p.sub {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0 0 40px;
+    max-width: 40ch;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 14px 14px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--amber);
+  }
+
+  input[type="text"]::placeholder {
+    color: #55575e;
+  }
+
+  input[type="text"]:disabled {
+    opacity: 0.6;
+  }
+
+  .modes {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mode-btn.active {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  .mode-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .quality-label {
+    margin-top: 18px;
+  }
+
+  .qualities {
+    display: flex;
+    gap: 8px;
+  }
+
+  .quality-btn {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .quality-btn.active {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  .quality-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .quality-hint {
+    margin-top: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #55575e;
+  }
+
+  button.go {
+    width: 100%;
+    margin-top: 20px;
+    background: var(--amber);
+    border: none;
+    color: #16171a;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+
+  button.go:hover { filter: brightness(1.08); }
+  button.go:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 18px;
+    display: none;
+  }
+
+  .progress-wrap.visible {
+    display: block;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--amber);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+  }
+
+  .progress-fill.converting {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--amber),
+      var(--amber) 10px,
+      #c98a2d 10px,
+      #c98a2d 20px
+    );
+    background-size: 28px 28px;
+    animation: barber 1s linear infinite;
+    width: 100% !important;
+  }
+
+  @keyframes barber {
+    from { background-position: 0 0; }
+    to { background-position: 28px 0; }
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status {
+    margin-top: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    min-height: 18px;
+  }
+
+  .status.error { color: var(--error); }
+  .status.done { color: var(--green); }
+
+  /* Saved path box */
+  .path-box {
+    display: none;
+    margin-top: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+
+  .path-box.visible {
+    display: block;
+  }
+
+  .path-box .path-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .path-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .path-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--green);
+    word-break: break-all;
+    flex: 1;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .foot {
+    margin-top: 28px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #55575e;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="mark">$ grab</div>
+    <h1>Paste a link.<br>Get the file.</h1>
+    <p class="sub">Drop in a video URL, pick video or audio, and it downloads straight to your machine.</p>
+
+    <div class="panel">
+      <label for="url">link</label>
+      <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+
+      <div class="modes">
+        <button type="button" class="mode-btn active" data-mode="video">Video (.mp4)</button>
+        <button type="button" class="mode-btn" data-mode="audio">Audio (.mp3)</button>
+      </div>
+
+      <label class="quality-label">quality</label>
+      <div class="qualities">
+        <button type="button" class="quality-btn" data-quality="high">High</button>
+        <button type="button" class="quality-btn active" data-quality="medium">Medium</button>
+        <button type="button" class="quality-btn" data-quality="low">Low</button>
+      </div>
+      <div class="quality-hint" id="qualityHint">Up to 720p</div>
+
+      <button type="button" class="go" id="goBtn">Download</button>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-label">
+          <span id="progressStage">Starting…</span>
+          <span id="progressPercent">0%</span>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+
+      <div class="path-box" id="pathBox">
+        <div class="path-label">saved to</div>
+        <div class="path-row">
+          <span class="path-text" id="pathText"></span>
+          <button type="button" class="copy-btn" id="copyBtn">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      Only download content you have the rights to.<br>
+      Runs locally — nothing leaves your machine.
+    </div>
+  </div>
+
+<script>
+  let mode = 'video';
+  let quality = 'medium';
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  const qualityBtns = document.querySelectorAll('.quality-btn');
+  const qualityHint = document.getElementById('qualityHint');
+  const urlInput = document.getElementById('url');
+  const goBtn = document.getElementById('goBtn');
+  const statusEl = document.getElementById('status');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressStage = document.getElementById('progressStage');
+  const progressPercent = document.getElementById('progressPercent');
+  const pathBox = document.getElementById('pathBox');
+  const pathText = document.getElementById('pathText');
+  const copyBtn = document.getElementById('copyBtn');
+
+  let pollTimer = null;
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pathText.textContent);
+      copyBtn.textContent = 'Copied';
+      setTimeout(() => (copyBtn.textContent = 'Copy'), 1200);
+    } catch (e) {
+      // Clipboard API may be unavailable; fail silently.
+    }
+  });
+
+  const VIDEO_HINTS = {
+    high: 'Best available resolution',
+    medium: 'Up to 720p',
+    low: 'Up to 480p',
+  };
+
+  const AUDIO_HINTS = {
+    high: '320 kbps',
+    medium: '192 kbps',
+    low: '96 kbps',
+  };
+
+  function updateQualityHint() {
+    const hints = mode === 'audio' ? AUDIO_HINTS : VIDEO_HINTS;
+    qualityHint.textContent = hints[quality];
+  }
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      updateQualityHint();
+    });
+  });
+
+  qualityBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      qualityBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      quality = btn.dataset.quality;
+      updateQualityHint();
+    });
+  });
+
+  updateQualityHint();
+
+  function setStatus(text, kind) {
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (kind ? ' ' + kind : '');
+  }
+
+  function setBusy(busy) {
+    goBtn.disabled = busy;
+    urlInput.disabled = busy;
+    modeBtns.forEach(b => b.disabled = busy);
+    qualityBtns.forEach(b => b.disabled = busy);
+  }
+
+  function resetProgress() {
+    progressWrap.classList.remove('visible');
+    progressFill.classList.remove('converting');
+    progressFill.style.width = '0%';
+    progressStage.textContent = 'Starting…';
+    progressPercent.textContent = '0%';
+    pathBox.classList.remove('visible');
+    pathText.textContent = '';
+  }
+
+  function updateProgress(job) {
+    progressWrap.classList.add('visible');
+
+    if (job.status === 'converting') {
+      progressFill.classList.add('converting');
+      progressStage.textContent = 'Converting…';
+      progressPercent.textContent = '';
+    } else {
+      progressFill.classList.remove('converting');
+      const pct = job.percent || 0;
+      progressFill.style.width = pct + '%';
+      progressStage.textContent = job.status === 'starting' ? 'Starting…' : 'Downloading…';
+      progressPercent.textContent = pct + '%';
+    }
+  }
+
+  async function pollProgress(jobId) {
+    try {
+      const res = await fetch('/progress/' + jobId);
+      const job = await res.json();
+
+      if (job.error && job.status !== 'error') {
+        throw new Error(job.error);
+      }
+
+      updateProgress(job);
+
+      if (job.status === 'done') {
+        clearInterval(pollTimer);
+        progressFill.style.width = '100%';
+        progressStage.textContent = 'Done';
+        progressPercent.textContent = '100%';
+
+        if (job.path) {
+          pathText.textContent = job.path;
+          pathBox.classList.add('visible');
+        }
+
+        setStatus('Fetching your file…', '');
+        await fetchFile(jobId);
+      } else if (job.status === 'error') {
+        clearInterval(pollTimer);
+        setStatus(job.error || 'Download failed.', 'error');
+        setBusy(false);
+      }
+    } catch (e) {
+      clearInterval(pollTimer);
+      setStatus(e.message, 'error');
+      setBusy(false);
+    }
+  }
+
+  async function fetchFile(jobId) {
+    try {
+      const res = await fetch('/file/' + jobId);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not fetch the file.');
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : (mode === 'audio' ? 'audio.mp3' : 'video.mp4');
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setStatus('Done — saved on disk, and sent to your browser downloads.', 'done');
+    } catch (e) {
+      setStatus(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startDownload() {
+    const url = urlInput.value.trim();
+    if (!url) {
+      setStatus('Paste a link first.', 'error');
+      return;
+    }
+
+    setBusy(true);
+    resetProgress();
+    progressWrap.classList.add('visible');
+    setStatus('', '');
+
+    try {
+      const res = await fetch('/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, mode, quality })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not start download.');
+      }
+
+      const { job_id } = await res.json();
+      pollTimer = setInterval(() => pollProgress(job_id), 700);
+    } catch (e) {
+      setStatus(e.message, 'error');
+      setBusy(false);
+    }
+  }
+
+  goBtn.addEventListener('click', startDownload);
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startDownload();
+  });
+</script>
+</body>
+</html>
